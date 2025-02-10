@@ -1,0 +1,80 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+          "label": "Install",
+          "type": "shell",
+          "command": "python",
+          "args": ["-m", "pip", "install", "-e", ".[dev]"],
+          "presentation": {
+            "reveal": "always"
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "Launch Pretraining",
+          "type": "shell",
+          "command": "python",
+          "args": ["-m", "masters.train.pretrain"],
+          "presentation": {
+            "reveal": "always"
+          },
+          "problemMatcher": []
+        },        {
+          "label": "Launch Fine-tuning",
+          "type": "shell",
+          "command": "python",
+          "args": ["-m", "masters.train.finetune"],
+          "presentation": {
+            "reveal": "always"
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "Distributed Pretraining",
+          "type": "shell",
+          "command": "bash",
+          "args": ["${workspaceFolder}/masters/train/ddp.sh", "${input:port}", "${input:node_list}", "pretrain"],
+          "presentation": {
+            "reveal": "always"
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "Distributed Fine-tuning",
+          "type": "shell",
+          "command": "bash",
+          "args": ["${workspaceFolder}/masters/train/ddp.sh", "${input:port}", "${input:node_list}", "finetune"],
+          "presentation": {
+            "reveal": "always"
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "Launch Tensorboard",
+          "type": "shell",
+          "command": "tensorboard",
+          "args": ["--logdir", "checkpoints/lightning_logs"],
+          "presentation": {
+            "reveal": "always"
+          },
+          "problemMatcher": []
+        }
+    ],
+    "inputs": [
+      {
+          "type": "promptString",
+          "id": "port",
+          "description": "Enter the MASTER_PORT number",
+          "default": "8787"
+      },
+      {
+          "type": "promptString",
+          "id": "node_list",
+          "description": "Enter the comma-seperated list of nodes",
+          "default": "node01,node02"
+      }
+  ]
+}

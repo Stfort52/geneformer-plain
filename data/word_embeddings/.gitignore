@@ -1,0 +1,8 @@
+# files related to gensim Word2Vec and KeyedVectors models
+
+*.w2v
+*.wv
+*.kv
+*.npy
+*.pkl
+*.pickle

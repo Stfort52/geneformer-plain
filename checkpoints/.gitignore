@@ -1,0 +1,8 @@
+# files about model checkpoints and optimization states
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+
+# TensorBoard event files
+*.tfevents*

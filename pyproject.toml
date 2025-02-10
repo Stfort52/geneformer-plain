@@ -1,0 +1,49 @@
+[project]
+name = "masters"
+version = "0.0.1"
+description = "fourty-two"
+readme = "README.md"
+requires-python = "==3.11.*"
+keywords = []
+authors = [
+    { name = "Jaehoon Baek", email = "52439950+Stfort52@users.noreply.github.com"},
+]
+dependencies = [
+    "torch>=2.4.0, <2.5.0",
+    "datasets",
+    "transformers",
+    "lightning>=2.2.3",
+    "torchmetrics",
+    "matplotlib",
+    "pandas",
+    "seaborn",
+    "jupyter",
+    "einops",
+    "gensim",
+    "tensorboardX",
+    "torch-tb-profiler",
+    "scikit-learn"
+]
+
+[project.optional-dependencies]
+dev = [
+    "black[jupyter]",
+    "isort"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["masters"]
+exclude = []
+namespaces = false
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["setuptools"]               # REQUIRED if [build-system] table is used
+build-backend = "setuptools.build_meta" # If not defined, then legacy behavior can happen.
