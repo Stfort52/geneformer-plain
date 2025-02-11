@@ -9,6 +9,7 @@ import torch
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
 
 from masters.data.lightning import GenecorpusDataModule
+from masters.data.utils import load_gensim_model_or_kv
 from masters.model.lightning import LightningPretraining
 from masters.model.model import BertConfig
 from masters.model.utils import EvenlySpacedModelCheckpoint
@@ -21,13 +22,15 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
-    BATCH_SIZE = 32
+    BATCH_SIZE = 12
     BATCH_PER_GPU = BATCH_SIZE // WORLD_SIZE
 
     DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
     dataset_dir = DATA_DIR / "datasets/genecorpus_1M_2048.dataset"
     token_dict = pickle.load((DATA_DIR / "token_dictionary.pkl").open("rb"))
+
+    EMBED_PATH = Path("/path/to/your/embeddings")
 
     data = GenecorpusDataModule(
         dataset_dir, token_dict=token_dict, batch_size=BATCH_PER_GPU
@@ -56,10 +59,15 @@ if __name__ == "__main__":
         lr=1e-3,
         warmup_steps_or_ratio=0.1,
         lr_scheduler="linear",
+        embed_path=str(EMBED_PATH),
     )
 
+    if EMBED_PATH is not None:
+        word_embed = load_gensim_model_or_kv(str(EMBED_PATH), token_dict)
+        model.model.bert.embedder.load_pretrained(word_embed)
+
     checkpoint_callback = EvenlySpacedModelCheckpoint(
-        save_last="link", n_ckeckpoints=20
+        save_last="link", n_checkpoints=20
     )
     csv_logger = CSVLogger("checkpoints")
     tb_logger = TensorBoardLogger("checkpoints", version=csv_logger.version)

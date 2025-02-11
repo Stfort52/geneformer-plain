@@ -27,5 +27,6 @@ class WordEmbedding(nn.Module):
         word_embed.embed.weight.data.copy_(embed)
         return word_embed
 
-    def load_pretrained(self, embed: Tensor) -> None:
+    def load_pretrained(self, embed: Tensor, freeze: bool = False) -> None:
         self.embed.weight.data.copy_(embed)
+        self.embed.weight.requires_grad = not freeze

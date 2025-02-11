@@ -16,6 +16,7 @@ class LightningPretraining(L.LightningModule):
         initialization_range: float = 0.02,
         lr_scheduler: str = "cosine",
         warmup_steps_or_ratio: int | float = 0.1,
+        **_,  # log additional arguments as needed
     ):
         super(LightningPretraining, self).__init__()
         self.model = BertPretraining(**config)
