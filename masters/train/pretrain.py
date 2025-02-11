@@ -30,7 +30,9 @@ if __name__ == "__main__":
     dataset_dir = DATA_DIR / "datasets/genecorpus_1M_2048.dataset"
     token_dict = pickle.load((DATA_DIR / "token_dictionary.pkl").open("rb"))
 
-    EMBED_PATH = Path("/path/to/your/embeddings")
+    EMBED_PATH = None
+    # in case you want to use pre-trained gensim embeddings
+    # EMBED_PATH = Path("data/word_embeddings/your-own-embeddings.kv")
 
     data = GenecorpusDataModule(
         dataset_dir, token_dict=token_dict, batch_size=BATCH_PER_GPU
@@ -60,6 +62,7 @@ if __name__ == "__main__":
         warmup_steps_or_ratio=0.1,
         lr_scheduler="linear",
         embed_path=str(EMBED_PATH),
+        batch_size=BATCH_SIZE,
     )
 
     if EMBED_PATH is not None:
