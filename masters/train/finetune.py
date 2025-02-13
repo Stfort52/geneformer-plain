@@ -10,7 +10,7 @@ import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
 
-from masters.data.lightning import NerDataModule
+from masters.data.lightning import NerSplitsDataModule
 from masters.model.lightning import LightningTokenClassification
 
 if __name__ == "__main__":
@@ -35,10 +35,10 @@ if __name__ == "__main__":
     dataset_dir = DATA_DIR / "datasets/iCM_diff_dropseq.dataset"
     token_dict = pickle.load((DATA_DIR / "token_dictionary.pkl").open("rb"))
 
-    data = NerDataModule(
+    data = NerSplitsDataModule(
         dataset_dir=dataset_dir,
         token_dict=token_dict,
-        entity_labels=labels,
+        gene_labels=labels,
         batch_size=BATCH_PER_GPU,
     )
 

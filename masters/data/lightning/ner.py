@@ -4,10 +4,9 @@ from typing import Any, cast
 import datasets
 import lightning as L
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from ..utils import Cell, NerDataCollator
+from ..utils import NerDataCollator
 
 
 class NerDataModule(L.LightningDataModule):
@@ -15,31 +14,26 @@ class NerDataModule(L.LightningDataModule):
         self,
         dataset_dir: str | Path,
         token_dict: dict[str, int],
-        entity_labels: pd.Series,
+        train_gene_labels: pd.Series,
+        test_gene_labels: pd.Series,
         train_cell_count_or_ratio: int | float = 10_000,
         test_cell_count_or_ratio: int | float = 2_000,
-        test_gene_ratio: float = 0.2,
         ignore_index: int = -100,
         batch_size: int = 32,
         dataset_shuffle: int | bool = 42,
-        label_shuffle: int | bool = 42,
         num_workers: int = 16,
     ):
         super().__init__()
         self.dataset_dir = Path(dataset_dir)
         self.token_dict = token_dict
-        self.ignore_index = ignore_index
-        self.entity_labels = entity_labels
+        self.train_gene_labels = train_gene_labels
+        self.test_gene_labels = test_gene_labels
         self.train_cell_count_or_ratio = train_cell_count_or_ratio
         self.test_cell_count_or_ratio = test_cell_count_or_ratio
-        self.test_gene_Ratio = test_gene_ratio
+        self.ignore_index = ignore_index
         self.batch_size = batch_size
         self.dataset_shuffle = dataset_shuffle
-        self.label_shuffle = label_shuffle
         self.num_workers = num_workers
-
-        self.train_labels: pd.Series
-        self.test_labels: pd.Series
 
     def prepare_data(self) -> None:
         self.dataset = cast(datasets.Dataset, datasets.load_from_disk(self.dataset_dir))
@@ -53,63 +47,48 @@ class NerDataModule(L.LightningDataModule):
             case int():
                 self.dataset = self.dataset.shuffle(seed=self.dataset_shuffle)
 
-        # shuffle the genes
-        match self.label_shuffle:
-            case bool():
-                self.train_labels, self.test_labels = train_test_split(
-                    self.entity_labels,
-                    test_size=self.test_gene_Ratio,
-                    shuffle=self.label_shuffle,
-                    random_state=None,
-                    stratify=self.entity_labels.to_list(),
-                )
-            case int():
-                self.train_labels, self.test_labels = train_test_split(
-                    self.entity_labels,
-                    test_size=self.test_gene_Ratio,
-                    shuffle=True,
-                    random_state=self.label_shuffle,
-                    stratify=self.entity_labels.to_list(),
-                )
-
         # pick cells with at least one gene label
-        train_label_list = self.train_labels.index.to_list()
+        train_label_list = self.train_gene_labels.index.to_list()
         self.train_dataset = self.dataset.filter(
             lambda cell: not set(cell["input_ids"]).isdisjoint(train_label_list),
             num_proc=self.num_workers,
         )
-        test_label_list = self.test_labels.index.to_list()
+        test_label_list = self.test_gene_labels.index.to_list()
         self.test_dataset = self.dataset.filter(
             lambda cell: not set(cell["input_ids"]).isdisjoint(test_label_list),
             num_proc=self.num_workers,
         )
 
         # cut the dataset
-        if isinstance(self.train_cell_count_or_ratio, int):
-            n_train_cells = self.train_cell_count_or_ratio
-            if n_train_cells > len(self.train_dataset):
-                self.print(
-                    f"Requested {n_train_cells} train cells, "
-                    f"but only {len(self.train_dataset)} are available. "
-                    "Using all available cells."
+        match self.train_cell_count_or_ratio:
+            case int():
+                n_train_cells = self.train_cell_count_or_ratio
+                if n_train_cells > len(self.train_dataset):
+                    self.print(
+                        f"Requested {n_train_cells} train cells, "
+                        f"but only {len(self.train_dataset)} are available. "
+                        "Using all available cells."
+                    )
+                    n_train_cells = len(self.train_dataset)
+            case float():
+                n_train_cells = int(
+                    len(self.train_dataset) * self.train_cell_count_or_ratio
                 )
-                n_train_cells = len(self.train_dataset)
-        else:
-            n_train_cells = int(
-                len(self.train_dataset) * self.train_cell_count_or_ratio
-            )
 
-        if isinstance(self.test_cell_count_or_ratio, int):
-            n_test_cells = self.test_cell_count_or_ratio
-            if n_test_cells > len(self.test_dataset):
-                self.print(
-                    f"Requested {n_test_cells} test cells, "
-                    f"but only {len(self.test_dataset)} are available. "
-                    "Using all available cells."
+        match self.test_cell_count_or_ratio:
+            case int():
+                n_test_cells = self.test_cell_count_or_ratio
+                if n_test_cells > len(self.test_dataset):
+                    self.print(
+                        f"Requested {n_test_cells} test cells, "
+                        f"but only {len(self.test_dataset)} are available. "
+                        "Using all available cells."
+                    )
+                    n_test_cells = len(self.test_dataset)
+            case float():
+                n_test_cells = int(
+                    len(self.test_dataset) * self.test_cell_count_or_ratio
                 )
-                n_test_cells = len(self.test_dataset)
-        else:
-            n_test_cells = int(len(self.test_dataset) * self.test_cell_count_or_ratio)
 
         self.train_dataset = self.train_dataset.select(range(n_train_cells))
         self.test_dataset = self.test_dataset.select(range(n_test_cells))
@@ -119,7 +98,7 @@ class NerDataModule(L.LightningDataModule):
             self._add_labels,
             num_proc=self.num_workers,
             fn_kwargs={
-                "label_map": self.train_labels,
+                "label_map": self.train_gene_labels,
                 "ignore_index": self.ignore_index,
             },
         )
@@ -127,7 +106,7 @@ class NerDataModule(L.LightningDataModule):
             self._add_labels,
             num_proc=self.num_workers,
             fn_kwargs={
-                "label_map": self.test_labels,
+                "label_map": self.test_gene_labels,
                 "ignore_index": self.ignore_index,
             },
         )
