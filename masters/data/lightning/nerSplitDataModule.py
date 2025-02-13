@@ -27,7 +27,7 @@ class NerSplitsDataModule(NerDataModule):
                 train_gene_labels, test_gene_labels = train_test_split(
                     gene_labels,
                     test_size=test_gene_ratio,
-                    stratify=gene_labels.index.to_list(),
+                    stratify=gene_labels.to_list(),
                     shuffle=gene_label_shuffle,
                     random_state=None,
                 )
@@ -35,7 +35,7 @@ class NerSplitsDataModule(NerDataModule):
                 train_gene_labels, test_gene_labels = train_test_split(
                     gene_labels,
                     test_size=test_gene_ratio,
-                    stratify=gene_labels.index.to_list(),
+                    stratify=gene_labels.to_list(),
                     shuffle=True,
                     random_state=gene_label_shuffle,
                 )

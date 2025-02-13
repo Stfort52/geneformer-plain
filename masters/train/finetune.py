@@ -25,8 +25,8 @@ if __name__ == "__main__":
     BATCH_PER_GPU = BATCH_SIZE // WORLD_SIZE
 
     DATA_DIR = Path(__file__).parent.parent.parent / "data"
-    MODEL_DIR = DATA_DIR.parent / f"checkpoints/lightning_logs/version_{2}"
-    TASK_NAME = "bivalent_gene_prediction"
+    MODEL_DIR = DATA_DIR.parent / f"checkpoints/lightning_logs/version_{0}"
+    TASK_NAME = "tf_range_prediction"
 
     labels = pd.read_csv(DATA_DIR / "is_longrange_tf.csv").set_index("id")[
         "is_longrange"
@@ -68,3 +68,5 @@ if __name__ == "__main__":
         num_nodes=WORLD_SIZE,
     )
     trainer.fit(model, data)
+    trainer.validate()
+    trainer.test()

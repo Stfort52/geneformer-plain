@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any, cast
 
-import datasets
 import lightning as L
 import pandas as pd
+from datasets import Dataset, load_from_disk
 from torch.utils.data import DataLoader
 
 from ..utils import NerDataCollator
@@ -35,9 +35,8 @@ class NerDataModule(L.LightningDataModule):
         self.dataset_shuffle = dataset_shuffle
         self.num_workers = num_workers
 
-    def prepare_data(self) -> None:
-        self.dataset = cast(datasets.Dataset, datasets.load_from_disk(self.dataset_dir))
-
+    def setup(self, stage: str) -> None:
+        self.dataset = cast(Dataset, load_from_disk(self.dataset_dir))
         # shuffle the cells
         match self.dataset_shuffle:
             case True:
@@ -47,83 +46,66 @@ class NerDataModule(L.LightningDataModule):
             case int():
                 self.dataset = self.dataset.shuffle(seed=self.dataset_shuffle)
 
-        # pick cells with at least one gene label
-        train_label_list = self.train_gene_labels.index.to_list()
-        self.train_dataset = self.dataset.filter(
-            lambda cell: not set(cell["input_ids"]).isdisjoint(train_label_list),
-            num_proc=self.num_workers,
-        )
-        test_label_list = self.test_gene_labels.index.to_list()
-        self.test_dataset = self.dataset.filter(
-            lambda cell: not set(cell["input_ids"]).isdisjoint(test_label_list),
-            num_proc=self.num_workers,
-        )
-
-        # cut the dataset
-        match self.train_cell_count_or_ratio:
-            case int():
-                n_train_cells = self.train_cell_count_or_ratio
-                if n_train_cells > len(self.train_dataset):
-                    self.print(
-                        f"Requested {n_train_cells} train cells, "
-                        f"but only {len(self.train_dataset)} are available. "
-                        "Using all available cells."
-                    )
-                    n_train_cells = len(self.train_dataset)
-            case float():
-                n_train_cells = int(
-                    len(self.train_dataset) * self.train_cell_count_or_ratio
-                )
-
-        match self.test_cell_count_or_ratio:
-            case int():
-                n_test_cells = self.test_cell_count_or_ratio
-                if n_test_cells > len(self.test_dataset):
-                    self.print(
-                        f"Requested {n_test_cells} test cells, "
-                        f"but only {len(self.test_dataset)} are available. "
-                        "Using all available cells."
-                    )
-                    n_test_cells = len(self.test_dataset)
-            case float():
-                n_test_cells = int(
-                    len(self.test_dataset) * self.test_cell_count_or_ratio
-                )
-
-        self.train_dataset = self.train_dataset.select(range(n_train_cells))
-        self.test_dataset = self.test_dataset.select(range(n_test_cells))
-
-        # annotate the gene labels
-        self.train_dataset = self.train_dataset.map(
-            self._add_labels,
-            num_proc=self.num_workers,
-            fn_kwargs={
-                "label_map": self.train_gene_labels,
-                "ignore_index": self.ignore_index,
-            },
-        )
-        self.test_dataset = self.test_dataset.map(
-            self._add_labels,
-            num_proc=self.num_workers,
-            fn_kwargs={
-                "label_map": self.test_gene_labels,
-                "ignore_index": self.ignore_index,
-            },
-        )
-
-        # set the format
-        self.train_dataset.set_format(
-            type="torch", columns=["input_ids", "gene_labels"], output_all_columns=True
-        )
-        self.test_dataset.set_format(
-            type="torch", columns=["input_ids", "gene_labels"], output_all_columns=True
-        )
-
         self.collator = NerDataCollator(
             token_dict=self.token_dict,
             pad_token_or_index="<pad>",
             ignore_index=self.ignore_index,
         )
+
+        if stage == "fit":
+            self.train_dataset = self._prepare_split(
+                gene_labels=self.train_gene_labels,
+                cell_count_or_ratio=self.train_cell_count_or_ratio,
+            )
+        if stage in ("fit", "validate", "test"):
+            self.test_dataset = self._prepare_split(
+                gene_labels=self.test_gene_labels,
+                cell_count_or_ratio=self.test_cell_count_or_ratio,
+            )
+
+    def _prepare_split(
+        self, gene_labels: pd.Series, cell_count_or_ratio: int | float
+    ) -> Dataset:
+        # pick cells with at least one gene label
+        label_list = gene_labels.index.to_list()
+        dataset = self.dataset.filter(
+            lambda cell: not set(cell["input_ids"]).isdisjoint(label_list),
+            num_proc=self.num_workers,
+        )
+
+        # cut the dataset
+        match cell_count_or_ratio:
+            case int():
+                n_cells = cell_count_or_ratio
+                if n_cells > len(dataset):
+                    self.print(
+                        f"Requested {n_cells} cells, "
+                        f"but only {len(dataset)} are available. "
+                        "Using all available cells."
+                    )
+                    n_cells = len(dataset)
+            case float():
+                n_cells = int(len(dataset) * cell_count_or_ratio)
+        dataset = dataset.select(range(n_cells))
+
+        # annotate the gene labels
+        dataset = dataset.map(
+            self._add_labels,
+            num_proc=self.num_workers,
+            fn_kwargs={
+                "label_map": gene_labels,
+                "ignore_index": self.ignore_index,
+            },
+        )
+
+        # set the format
+        dataset.set_format(
+            type="torch",
+            columns=["input_ids", "gene_labels"],
+            output_all_columns=True,
+        )
+
+        return dataset
 
     def train_dataloader(self):
         assert self.train_dataset is not None

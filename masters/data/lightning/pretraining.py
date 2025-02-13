@@ -26,7 +26,7 @@ class GenecorpusDataModule(L.LightningDataModule):
         self.shuffle = shuffle
         self.num_workers = num_workers
 
-    def prepare_data(self) -> None:
+    def setup(self, stage: str) -> None:
         self.dataset = cast(datasets.Dataset, datasets.load_from_disk(self.dataset_dir))
         self.dataset.set_format(
             type="torch", columns=["input_ids"], output_all_columns=True

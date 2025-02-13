@@ -28,7 +28,7 @@ class SeqClsDataModule(L.LightningDataModule):
         self.shuffle = shuffle
         self.num_workers = num_workers
 
-    def prepare_data(self) -> None:
+    def setup(self, stage: str) -> None:
         self.dataset = cast(datasets.Dataset, datasets.load_from_disk(self.dataset_dir))
         self.dataset = self.dataset.rename_column(self.cell_type_column, "cell_label")
         self.dataset.set_format(
