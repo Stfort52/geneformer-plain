@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import gensim
 import torch
 from torch import Tensor
