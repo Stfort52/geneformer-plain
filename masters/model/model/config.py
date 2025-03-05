@@ -12,6 +12,7 @@ class BertConfig:
     attn_dropout: float = 0.02
     ff_dropout: float = 0.02
     norm: Literal["pre", "post"] = "post"
+    ln_eps: float = 1e-12
     absolute_pe_strategy: str | None = "trained"
     absolute_pe_kwargs: dict[str, Any] = field(
         default_factory=lambda: {"max_len": 2048}

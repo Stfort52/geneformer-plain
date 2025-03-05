@@ -24,14 +24,17 @@ class BertBase(nn.Module):
         relative_pe_strategy: str | None = None,
         relative_pe_kwargs: dict[str, Any] = {},
         relative_pe_shared: bool = False,
+        ln_eps: float = 1e-12,
         act_fn: str = "relu",
     ):
-        super(BertBase, self).__init__()
+        super().__init__()
         self.absolute_pe_strategy = absolute_pe_strategy
         self.relative_pe_strategy = relative_pe_strategy
         self._check_args()
 
-        self.embedder = WordEmbedding(n_vocab, d_model, dropout_p=ff_dropout)
+        self.embedder = WordEmbedding(
+            n_vocab, d_model, dropout_p=ff_dropout, ln_eps=ln_eps
+        )
 
         if absolute_pe_strategy is not None:
             absolute_pe_kwargs.setdefault("embed_size", d_model)
@@ -61,6 +64,7 @@ class BertBase(nn.Module):
             relative_pe_strategy,
             relative_pe_kwargs,
             relative_pe_shared,
+            ln_eps,
             act_fn,
         )
 

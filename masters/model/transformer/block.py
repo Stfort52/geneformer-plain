@@ -21,7 +21,7 @@ class Block(nn.Module):
         ln_eps: float = 1e-12,
         act_fn: str = "relu",
     ):
-        super(Block, self).__init__()
+        super().__init__()
         self.embed_size = embed_size
         self.num_heads = num_heads
         self.attn_dropout = attn_dropout

@@ -23,9 +23,10 @@ class BertPretraining(nn.Module):
         relative_pe_strategy: str | None,
         relative_pe_kwargs: dict[str, Any],
         relative_pe_shared: bool,
+        ln_eps: float,
         act_fn: str,
     ):
-        super(BertPretraining, self).__init__()
+        super().__init__()
 
         self.bert = BertBase(
             n_vocab,
@@ -41,15 +42,17 @@ class BertPretraining(nn.Module):
             relative_pe_strategy,
             relative_pe_kwargs,
             relative_pe_shared,
+            ln_eps,
             act_fn,
         )
 
-        self.lm = LanguageModeling(d_model, n_vocab)
+        self.lm = LanguageModeling(d_model, n_vocab, ln_eps, act_fn)
         self.lm.tie_weights(self.bert.embedder.embed)
 
     def reset_weights(
         self, initialization_range: float = 0.02, reset_all: bool = True
     ) -> None:
+        print(f"Resetting weights of {self.__class__.__name__}")
         reset_weights(self.lm, initialization_range)
         if reset_all:
             reset_weights(self.bert, initialization_range)

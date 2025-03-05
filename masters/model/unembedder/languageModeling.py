@@ -7,7 +7,7 @@ class LanguageModeling(nn.Module):
     def __init__(
         self, d_model: int, n_vocab: int, ln_eps: float = 1e-12, act_fn: str = "relu"
     ):
-        super(LanguageModeling, self).__init__()
+        super().__init__()
 
         self.dense = nn.Sequential(
             nn.Linear(d_model, d_model),

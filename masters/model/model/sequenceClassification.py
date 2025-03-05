@@ -24,6 +24,7 @@ class BertSequenceClassification(nn.Module):
         relative_pe_strategy: str | None,
         relative_pe_kwargs: dict[str, Any],
         relative_pe_shared: bool,
+        ln_eps: float,
         act_fn: str,
         n_classes: int,
         cls_dropout: float,
@@ -44,6 +45,7 @@ class BertSequenceClassification(nn.Module):
             relative_pe_strategy,
             relative_pe_kwargs,
             relative_pe_shared,
+            ln_eps,
             act_fn,
         )
 

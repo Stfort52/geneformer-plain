@@ -18,6 +18,7 @@ class Encoder(nn.Module):
         relative_pe: str | None,
         relative_pe_kwargs: dict,
         relative_pe_shared: bool,
+        ln_eps: float,
         act_fn: str,
     ):
         super(Encoder, self).__init__()
@@ -39,6 +40,7 @@ class Encoder(nn.Module):
                 relative_pe=relative_pe,
                 relative_pe_kwargs=relative_pe_kwargs,
                 relative_pe_shared=relative_pe_shared,
+                ln_eps=ln_eps,
                 act_fn=act_fn,
             )
             for _ in range(num_layers)
