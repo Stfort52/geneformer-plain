@@ -15,6 +15,7 @@ class LightningTokenClassification(L.LightningModule):
         self,
         model_path_or_config: str | Path | BertConfig,
         n_classes: int,
+        cls_dropout: float | None = None,
         ignore_index: int = -100,
         lr: float = 5e-5,
         weight_decay: float = 0.01,
@@ -31,15 +32,19 @@ class LightningTokenClassification(L.LightningModule):
                     model_path_or_config
                 )
                 self.config = pretrained.model.config
-                self.config.n_classes = n_classes
                 self.model_path = model_path_or_config
-                self.model = BertTokenClassification(self.config)
-                self.model.bert.load_state_dict(pretrained.model.bert.state_dict())
             case BertConfig():
+                pretrained = None
                 self.config = model_path_or_config
-                self.config.n_classes = n_classes
                 self.model_path = None
-                self.model = BertTokenClassification(self.config)
+
+        self.config.n_classes = n_classes
+        if cls_dropout is not None:
+            self.config.cls_dropout = cls_dropout
+
+        self.model = BertTokenClassification(self.config)
+        if pretrained is not None:
+            self.model.bert.load_state_dict(pretrained.model.bert.state_dict())
 
         if freeze_first_n_layers > 0:
             assert (
