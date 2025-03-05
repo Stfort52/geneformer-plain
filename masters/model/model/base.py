@@ -26,6 +26,7 @@ class BertBase(nn.Module):
         relative_pe_shared: bool = False,
         ln_eps: float = 1e-12,
         act_fn: str = "relu",
+        **_,  # keep the base from using `BertConfig`
     ):
         super().__init__()
         self.absolute_pe_strategy = absolute_pe_strategy

@@ -12,6 +12,7 @@ class BertConfig:
     attn_dropout: float = 0.02
     ff_dropout: float = 0.02
     norm: Literal["pre", "post"] = "post"
+    initialization_range: float = 0.02
     ln_eps: float = 1e-12
     absolute_pe_strategy: str | None = "trained"
     absolute_pe_kwargs: dict[str, Any] = field(
@@ -21,6 +22,8 @@ class BertConfig:
     relative_pe_kwargs: dict[str, Any] = field(default_factory=dict)
     relative_pe_shared: bool = False
     act_fn: str = "relu"
+    n_classes: int = 2
+    cls_dropout: float = 0.0
 
     def keys(self):
         return asdict(self).keys()
@@ -31,6 +34,7 @@ class BertConfig:
     @classmethod
     def from_setting(cls, setting: str) -> Self:
         match setting:
+            # v1: CV Theodoris, Transfer learning enables predictions in network biology
             case "base" | "v1" | "v1-base":
                 return cls()
             case "large" | "v1-large":
@@ -41,6 +45,7 @@ class BertConfig:
                     d_ff=1024,
                     absolute_pe_kwargs={"max_len": 2048},
                 )
+            # v2: H Chen, Quantized multi-task learning for context-specific representations of gene network dynamics
             case "v2" | "v2-base":
                 return cls(
                     n_vocab=20_275,

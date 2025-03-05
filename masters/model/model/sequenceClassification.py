@@ -1,60 +1,29 @@
 import warnings
-from typing import Any, Literal
 
 from torch import LongTensor, Tensor, nn
 
 from ..unembedder import Pooling, SequenceClassification
 from ..utils import reset_weights
-from . import BertBase
+from . import BertBase, BertConfig
 
 
 class BertSequenceClassification(nn.Module):
-    def __init__(
-        self,
-        n_vocab: int,
-        d_model: int,
-        num_heads: int,
-        num_layers: int,
-        d_ff: int,
-        attn_dropout: float,
-        ff_dropout: float,
-        norm: Literal["pre", "post"],
-        absolute_pe_strategy: str | None,
-        absolute_pe_kwargs: dict[str, Any],
-        relative_pe_strategy: str | None,
-        relative_pe_kwargs: dict[str, Any],
-        relative_pe_shared: bool,
-        ln_eps: float,
-        act_fn: str,
-        n_classes: int,
-        cls_dropout: float,
-    ):
-        super(BertSequenceClassification, self).__init__()
+    def __init__(self, config: BertConfig):
+        super().__init__()
 
-        self.bert = BertBase(
-            n_vocab,
-            d_model,
-            num_heads,
-            num_layers,
-            d_ff,
-            attn_dropout,
-            ff_dropout,
-            norm,
-            absolute_pe_strategy,
-            absolute_pe_kwargs,
-            relative_pe_strategy,
-            relative_pe_kwargs,
-            relative_pe_shared,
-            ln_eps,
-            act_fn,
-        )
+        self.config = config
+        self.bert = BertBase(**config)
 
         self.pool = Pooling("mean")
-        self.cls = SequenceClassification(d_model, n_classes, cls_dropout)
+        self.cls = SequenceClassification(
+            config.d_model, config.n_classes, config.cls_dropout
+        )
 
     def reset_weights(
-        self, initialization_range: float = 0.02, reset_all: bool = False
+        self, initialization_range: float | None = None, reset_all: bool = False
     ) -> None:
+        if initialization_range is None:
+            initialization_range = self.config.initialization_range
         if reset_all:
             reset_weights(self.bert, initialization_range)
             warnings.warn("Resetting entire model including pretrained weights")
