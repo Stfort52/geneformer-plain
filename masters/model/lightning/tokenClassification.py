@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import cast
 
 import einops
 import lightning as L
@@ -15,6 +14,7 @@ class LightningTokenClassification(L.LightningModule):
     def __init__(
         self,
         model_path_or_config: str | Path | BertConfig,
+        n_classes: int,
         ignore_index: int = -100,
         lr: float = 5e-5,
         weight_decay: float = 0.01,
@@ -23,7 +23,7 @@ class LightningTokenClassification(L.LightningModule):
         freeze_first_n_layers: int = 0,
         **_,  # log additional arguments as needed
     ):
-        super(LightningTokenClassification, self).__init__()
+        super().__init__()
 
         match model_path_or_config:
             case str() | Path():
@@ -31,11 +31,13 @@ class LightningTokenClassification(L.LightningModule):
                     model_path_or_config
                 )
                 self.config = pretrained.model.config
+                self.config.n_classes = n_classes
                 self.model_path = model_path_or_config
                 self.model = BertTokenClassification(self.config)
                 self.model.bert.load_state_dict(pretrained.model.bert.state_dict())
             case BertConfig():
                 self.config = model_path_or_config
+                self.config.n_classes = n_classes
                 self.model_path = None
                 self.model = BertTokenClassification(self.config)
 
