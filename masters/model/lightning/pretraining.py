@@ -13,14 +13,12 @@ class LightningPretraining(L.LightningModule):
         ignore_index: int = -100,
         lr: float = 5e-5,
         weight_decay: float = 0.01,
-        initialization_range: float = 0.02,
         lr_scheduler: str = "cosine",
         warmup_steps_or_ratio: int | float = 0.1,
         **_,  # log additional arguments as needed
     ):
-        super(LightningPretraining, self).__init__()
-        self.model = BertPretraining(**config)
-        self.model.reset_weights(initialization_range)
+        super().__init__()
+        self.model = BertPretraining(config)
 
         self.lr = lr
         self.weight_decay = weight_decay
@@ -28,7 +26,17 @@ class LightningPretraining(L.LightningModule):
         self.lr_scheduler = lr_scheduler
         self.warmup_steps_or_ratio = warmup_steps_or_ratio
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(
+            {
+                "config": config.asdict(),
+                "ignore_index": ignore_index,
+                "lr": lr,
+                "weight_decay": weight_decay,
+                "lr_scheduler": lr_scheduler,
+                "warmup_steps_or_ratio": warmup_steps_or_ratio,
+                **_,
+            }
+        )
 
         self.loss = nn.CrossEntropyLoss(ignore_index=ignore_index)
 

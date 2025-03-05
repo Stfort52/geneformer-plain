@@ -14,36 +14,32 @@ class LightningSequenceClassification(L.LightningModule):
     def __init__(
         self,
         model_path_or_config: str | Path | BertConfig,
-        n_classes: int,
-        cls_dropout: float = 0.0,
         lr: float = 5e-5,
         weight_decay: float = 0.01,
-        initialization_range: float = 0.02,
         lr_scheduler: str = "cosine",
         warmup_steps_or_ratio: int | float = 0.1,
         freeze_first_n_layers: int = 0,
+        **_,  # log additional arguments as needed
     ):
-        super(LightningSequenceClassification, self).__init__()
+        super().__init__()
 
-        if isinstance(model_path_or_config, (str, Path)):
-            pretrained = LightningPretraining.load_from_checkpoint(model_path_or_config)
-            base_model = pretrained.model.bert
-            config = cast(BertConfig, pretrained.hparams["config"])
-            self.model = BertSequenceClassification(
-                **config, n_classes=n_classes, cls_dropout=cls_dropout
-            )
-            self.model.bert = base_model
-        else:
-            config = model_path_or_config
-            self.model = BertSequenceClassification(
-                **config, n_classes=n_classes, cls_dropout=cls_dropout
-            )
-
-        self.model.reset_weights(initialization_range)
+        match model_path_or_config:
+            case str() | Path():
+                pretrained = LightningPretraining.load_from_checkpoint(
+                    model_path_or_config
+                )
+                self.config = pretrained.model.config
+                self.model_path = model_path_or_config
+                self.model = BertSequenceClassification(self.config)
+                self.model.bert.load_state_dict(pretrained.model.bert.state_dict())
+            case BertConfig():
+                self.config = model_path_or_config
+                self.model_path = None
+                self.model = BertSequenceClassification(self.config)
 
         if freeze_first_n_layers > 0:
             assert (
-                freeze_first_n_layers < config["num_layers"]
+                freeze_first_n_layers < self.config.num_layers
             ), "Number of layers to freeze should be less than total number of layers"
 
             for i in range(freeze_first_n_layers):
@@ -55,11 +51,22 @@ class LightningSequenceClassification(L.LightningModule):
         self.lr_scheduler = lr_scheduler
         self.warmup_steps_or_ratio = warmup_steps_or_ratio
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(
+            {
+                "model_path": self.model_path,
+                "config": self.config.asdict(),
+                "lr": lr,
+                "weight_decay": weight_decay,
+                "lr_scheduler": lr_scheduler,
+                "warmup_steps_or_ratio": warmup_steps_or_ratio,
+                "freeze_first_n_layers": freeze_first_n_layers,
+                **_,
+            }
+        )
 
         self.loss = nn.CrossEntropyLoss()
-        self.threshold_metrics = threshold_metrics(num_classes=n_classes)
-        self.continueous_metrics = continuous_metrics(num_classes=n_classes)
+        self.threshold_metrics = threshold_metrics(num_classes=self.config.n_classes)
+        self.continueous_metrics = continuous_metrics(num_classes=self.config.n_classes)
 
     def training_step(self, batch: tuple[LongTensor, LongTensor, LongTensor], _):
         inputs, labels, padding_mask = batch

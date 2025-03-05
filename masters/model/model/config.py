@@ -31,6 +31,9 @@ class BertConfig:
     def __getitem__(self, key):
         return asdict(self)[key]
 
+    def asdict(self):
+        return asdict(self)
+
     @classmethod
     def from_setting(cls, setting: str) -> Self:
         match setting:
