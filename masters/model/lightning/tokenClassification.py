@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import einops
 import lightning as L
@@ -13,7 +14,7 @@ from . import LightningPretraining
 class LightningTokenClassification(L.LightningModule):
     def __init__(
         self,
-        model_path_or_config: str | Path | BertConfig,
+        model_path_or_config: str | Path | BertConfig | dict[str, Any],
         n_classes: int,
         cls_dropout: float | None = None,
         ignore_index: int = -100,
@@ -31,11 +32,11 @@ class LightningTokenClassification(L.LightningModule):
                 pretrained = LightningPretraining.load_from_checkpoint(
                     model_path_or_config
                 )
-                self.config = pretrained.model.config
+                self.config = BertConfig(**pretrained.model.config)
                 self.model_path = model_path_or_config
-            case BertConfig():
+            case BertConfig() | dict():
                 pretrained = None
-                self.config = model_path_or_config
+                self.config = BertConfig(**model_path_or_config)
                 self.model_path = None
 
         self.config.n_classes = n_classes
@@ -85,7 +86,7 @@ class LightningTokenClassification(L.LightningModule):
     def training_step(self, batch: tuple[LongTensor, LongTensor, LongTensor], _):
         inputs, labels, padding_mask = batch
         logits = self.model(inputs, mask=padding_mask)
-        logits = einops.rearrange(logits, "b n v -> (b n) v")
+        logits = einops.rearrange(logits, "b n c -> (b n) c")
         loss = self.loss(logits, labels.flatten())
 
         self.log("train_loss", loss, prog_bar=True)
@@ -95,21 +96,38 @@ class LightningTokenClassification(L.LightningModule):
     def validation_step(self, batch: tuple[LongTensor, LongTensor, LongTensor], _):
         inputs, labels, padding_mask = batch
         logits = self.model(inputs, mask=padding_mask)
-        logits = einops.rearrange(logits, "b n v -> (b n) v")
+        logits = einops.rearrange(logits, "b n c -> (b n) c")
         labels = labels.flatten()
         loss = self.loss(logits, labels)
         self.log("val_loss", loss, prog_bar=True)
 
-        probablities = nn.functional.softmax(logits, dim=-1)
-        if probablities.size(-1) == 2:
-            probablities = probablities[:, 1]
+        probabilities = nn.functional.softmax(logits, dim=-1)
+        predictions = logits.argmax(dim=-1)
+
+        if probabilities.size(-1) == 2:
+            probabilities = probabilities[:, 1]
+
+        self.log_dict(self.threshold_metrics(predictions, labels))
+        self.log_dict(self.continueous_metrics(probabilities, labels))
+
+        return loss
+
+    def predict_step(self, batch: tuple[LongTensor, LongTensor | None, LongTensor], _):
+        inputs, labels, padding_mask = batch
+        logits = self.model(inputs, mask=padding_mask)
+
+        if labels is not None and labels.numel() > 0:
+            valid_idx = labels != self.ignore_index
+            logits = logits[valid_idx]
+            labels = labels[valid_idx]
+
+        probabilities = nn.functional.softmax(logits, dim=-1)
+        if probabilities.size(-1) == 2:
+            probabilities = probabilities[:, 1]
 
         predictions = logits.argmax(dim=-1)
 
-        self.log_dict(self.threshold_metrics(predictions, labels))
-        self.log_dict(self.continueous_metrics(probablities, labels))
-
-        return loss
+        return probabilities, predictions, labels
 
     def configure_optimizers(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if isinstance(self.warmup_steps_or_ratio, float):

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import lightning as L
 from torch import LongTensor, nn, optim
@@ -12,7 +13,7 @@ from . import LightningPretraining
 class LightningSequenceClassification(L.LightningModule):
     def __init__(
         self,
-        model_path_or_config: str | Path | BertConfig,
+        model_path_or_config: str | Path | BertConfig | dict[str, Any],
         n_classes: int,
         cls_dropout: float | None = None,
         lr: float = 5e-5,
@@ -29,11 +30,11 @@ class LightningSequenceClassification(L.LightningModule):
                 pretrained = LightningPretraining.load_from_checkpoint(
                     model_path_or_config
                 )
-                self.config = pretrained.model.config
+                self.config = BertConfig(**pretrained.model.config)
                 self.model_path = model_path_or_config
-            case BertConfig():
+            case BertConfig() | dict():
                 pretrained = None
-                self.config = model_path_or_config
+                self.config = BertConfig(**model_path_or_config)
                 self.model_path = None
 
         self.config.n_classes = n_classes

@@ -1,3 +1,5 @@
+from typing import Any
+
 import einops
 import lightning as L
 from torch import LongTensor, nn, optim
@@ -9,7 +11,7 @@ from ..model import BertConfig, BertPretraining
 class LightningPretraining(L.LightningModule):
     def __init__(
         self,
-        config: BertConfig,
+        config: BertConfig | dict[str, Any],
         ignore_index: int = -100,
         lr: float = 5e-5,
         weight_decay: float = 0.01,
@@ -18,6 +20,7 @@ class LightningPretraining(L.LightningModule):
         **_,  # log additional arguments as needed
     ):
         super().__init__()
+        config = BertConfig(**config)
         self.model = BertPretraining(config)
 
         self.lr = lr
