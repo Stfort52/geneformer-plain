@@ -1,31 +1,25 @@
 import os
 import pickle
-import random
 from pathlib import Path
 
 import lightning as L
-import numpy as np
 import pandas as pd
-import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
 
 from masters.data.lightning import NerSplitsDataModule
 from masters.model.lightning import LightningTokenClassification
+from masters.model.utils import training_setup
 
 if __name__ == "__main__":
-    torch.random.manual_seed(42)
-    torch.cuda.manual_seed_all(42)
-    np.random.seed(42)
-    random.seed(42)
-    torch.set_float32_matmul_precision("high")
+    training_setup(42)
 
     WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
     BATCH_SIZE = 32
     BATCH_PER_GPU = BATCH_SIZE // WORLD_SIZE
 
     DATA_DIR = Path(__file__).parent.parent.parent / "data"
-    MODEL_DIR = DATA_DIR.parent / f"checkpoints/lightning_logs/version_{0}"
+    MODEL_DIR = DATA_DIR.parent / f"checkpoints/lightning_logs/version_{10}"
     TASK_NAME = "tf_range_prediction"
 
     labels = pd.read_csv(DATA_DIR / "is_longrange_tf.csv").set_index("id")[
@@ -40,6 +34,8 @@ if __name__ == "__main__":
         token_dict=token_dict,
         gene_labels=labels,
         batch_size=BATCH_PER_GPU,
+        train_cell_count_or_ratio=1.0,
+        test_cell_count_or_ratio=1.0,
     )
 
     ckpt_dir = MODEL_DIR / "checkpoints" / "last.ckpt"
@@ -54,12 +50,14 @@ if __name__ == "__main__":
         warmup_steps_or_ratio=0.1,
         freeze_first_n_layers=0,
     )
+    model.model.reset_weights()
 
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss", mode="min", every_n_epochs=1
     )
     csv_logger = CSVLogger(save_dir, name=TASK_NAME)
     tb_logger = TensorBoardLogger(save_dir, name=TASK_NAME, version=csv_logger.version)
+
     trainer = L.Trainer(
         strategy="ddp" if WORLD_SIZE > 1 else "auto",
         max_epochs=5,
@@ -67,6 +65,5 @@ if __name__ == "__main__":
         callbacks=[checkpoint_callback],
         num_nodes=WORLD_SIZE,
     )
+
     trainer.fit(model, data)
-    trainer.validate()
-    trainer.test()
