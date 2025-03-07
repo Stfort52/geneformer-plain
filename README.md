@@ -84,37 +84,42 @@ bash -c masters/train/ddp.sh <master_port> <hosts> finetune
 
 Alternatively, Visual Studio Code users can launch the task `Distributed Fine-tuning` under the command `Tasks: Run Task`.
 
-## Advanced Usage
-
 ### Configure the model
 
-The base model has the following configurations, respecting the original paper "Transfer learning enables predictions in network biology" (<https://doi.org/10.1038/s41586-023-06139-9>)
+The `BertConfig` is a dataclass that can be used to configure the model. The default configuration respects the configuration used in the original 6 layer model from the 2023 Geneformer paper.
 
-```yaml
-config:
-  absolute_pe_kwargs:
-    embed_size: 256
-    max_len: 2048
-  absolute_pe_strategy: trained
-  act_fn: relu
-  attn_dropout: 0.02
-  d_ff: 512
-  d_model: 256
-  ff_dropout: 0.02
-  n_vocab: 25426
-  norm: post
-  num_heads: 4
-  num_layers: 6
-  relative_pe_kwargs: {}
-  relative_pe_shared: true
-  relative_pe_strategy: null
-ignore_index: -100
-initialization_range: 0.02
-lr: 0.001
-lr_scheduler: linear
-warmup_steps_or_ratio: 0.1
-weight_decay: 0.001
-batch_size: 12
+```python
+from masters.model.model import BertConfig
+
+# All load the same default configuration
+config = BertConfig()
+config = BertConfig.from_setting("v1")
+config = BertConfig.from_setting("base")
+config = BertConfig.from_setting("v1-base")
+
 ```
 
-The `config` key contains the model configuration. Anything else is a hyperparameter used for training.
+The 12 layer model from the 2023 Geneformer paper can be configured as follows:
+
+```python
+from masters.model.model import BertConfig
+
+# All load the same configuration
+config = BertConfig.from_setting("v1-large")
+config = BertConfig.from_setting("large")
+```
+
+The 2024 Geneformer paper can be configured as follows:
+
+```python
+from masters.model.model import BertConfig
+
+# All load the same configuration
+config = BertConfig.from_setting("v2")
+config = BertConfig.from_setting("v2-base")
+
+# And the larger model
+config = BertConfig.from_setting("v2-large")
+```
+
+But note that: the 2024 Geneformer uses a `[CLS]` token to generate cell embeddeings, which is different from the 2023 Geneformer which mean pools.
