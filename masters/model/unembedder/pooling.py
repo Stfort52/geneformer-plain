@@ -5,7 +5,7 @@ from torch import Tensor, nn
 
 class Pooling(nn.Module):
     def __init__(self, strategy: Literal["mean", "first", "max"]):
-        super(Pooling, self).__init__()
+        super().__init__()
         self.strategy = strategy
 
     def forward(self, x: Tensor) -> Tensor:

@@ -31,7 +31,7 @@ class LightningSequenceClassification(L.LightningModule):
                     model_path_or_config
                 )
                 self.config = BertConfig(**pretrained.model.config)
-                self.model_path = model_path_or_config
+                self.model_path = str(model_path_or_config)
             case BertConfig() | dict():
                 pretrained = None
                 self.config = BertConfig(**model_path_or_config)
