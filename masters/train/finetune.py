@@ -41,14 +41,13 @@ if __name__ == "__main__":
     ckpt_dir = MODEL_DIR / "checkpoints" / "last.ckpt"
     save_dir = MODEL_DIR / "finetune"
 
-    model = LightningTokenClassification(
-        model_path_or_config=ckpt_dir,
+    model = LightningTokenClassification.from_pretrained(
+        model_path=ckpt_dir,
         n_classes=labels.nunique(),
         lr=5e-5,
         weight_decay=1e-3,
         lr_scheduler="linear",
         warmup_steps_or_ratio=0.1,
-        freeze_first_n_layers=0,
     )
     model.model.reset_weights()
 

@@ -1,12 +1,13 @@
 # geneformer-plain
 
-This repository contains the implementation of the Geneformer model, without huggingface magic.
+This repository contains the implementation of the Geneformer model, with and without huggingface magic.
 Should be useful if you're looking to understand the model or modify it deeply.
 
 It still has the `transformers` library as a dependency, but it's not used for the model itself but for:
 
 - the learning rate scheduler with warmup
 - the bucket calculation in T5 positional bias (which is not the default)
+- for compatability with huggingface transformer models (so that you can directly use original models)
 
 And yes, I didn't make a decision on the name yet.
 Why is the package named `masters`? Because this was originally developed as a basis for my master's project.

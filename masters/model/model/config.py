@@ -31,7 +31,7 @@ class BertConfig:
     def __getitem__(self, key):
         return asdict(self)[key]
 
-    def asdict(self):
+    def to_dict(self):
         return asdict(self)
 
     @classmethod

@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Self, cast
 
 import einops
 import lightning as L
-from torch import LongTensor, nn, optim
-from transformers import get_scheduler
+from torch import LongTensor, Tensor, nn, optim
+from transformers import BertConfig as HFBertConfig
+from transformers import BertForTokenClassification, get_scheduler
 
 from ..model import BertConfig, BertTokenClassification
 from ..utils import continuous_metrics, threshold_metrics
@@ -14,58 +15,55 @@ from . import LightningPretraining
 class LightningTokenClassification(L.LightningModule):
     def __init__(
         self,
-        model_path_or_config: str | Path | BertConfig | dict[str, Any],
+        config: BertConfig | HFBertConfig | dict[str, Any],
         n_classes: int,
-        cls_dropout: float | None = None,
+        cls_dropout: float = 0.0,
         ignore_index: int = -100,
         lr: float = 5e-5,
         weight_decay: float = 0.01,
         lr_scheduler: str = "cosine",
         warmup_steps_or_ratio: int | float = 0.1,
-        freeze_first_n_layers: int = 0,
+        freeze_first_n_layers: int | None = None,
         **_,  # log additional arguments as needed
     ):
         super().__init__()
 
-        match model_path_or_config:
-            case str() | Path():
-                pretrained = LightningPretraining.load_from_checkpoint(
-                    model_path_or_config
-                )
-                self.config = BertConfig(**pretrained.model.config)
-                self.model_path = str(model_path_or_config)
-            case BertConfig() | dict():
-                pretrained = None
-                self.config = BertConfig(**model_path_or_config)
-                self.model_path = None
+        if isinstance(config, dict):
+            if "model_type" in config:
+                config = HFBertConfig(**config)
+            else:
+                config = BertConfig(**config)
 
-        self.config.n_classes = n_classes
-        if cls_dropout is not None:
-            self.config.cls_dropout = cls_dropout
+        match config:
+            case HFBertConfig():
+                config.num_labels = n_classes
+                config.classifier_dropout = cls_dropout
+                self.model = BertForTokenClassification(config)
+                self.forward = self.hf_forward
+                self.is_hf = True
+            case BertConfig():
+                config.n_classes = n_classes
+                config.cls_dropout = cls_dropout
+                self.model = BertTokenClassification(config)
+                self.forward = self.native_forward
+                self.is_hf = False
+            case _:
+                raise ValueError("Configuration not recognized")
 
-        self.model = BertTokenClassification(self.config)
-        if pretrained is not None:
-            self.model.bert.load_state_dict(pretrained.model.bert.state_dict())
-
-        if freeze_first_n_layers > 0:
-            assert (
-                freeze_first_n_layers < self.config["num_layers"]
-            ), "Number of layers to freeze should be less than total number of layers"
-
-            for i in range(freeze_first_n_layers):
-                for param in self.model.bert.encoder.layers[i].parameters():
-                    param.requires_grad = False
+        if freeze_first_n_layers is not None:
+            self.freeze_layers(freeze_first_n_layers)
 
         self.lr = lr
         self.weight_decay = weight_decay
         self.ignore_index = ignore_index
         self.lr_scheduler = lr_scheduler
         self.warmup_steps_or_ratio = warmup_steps_or_ratio
+        self.model_path = None
 
         self.save_hyperparameters(
             {
                 "model_path": self.model_path,
-                "config": self.config.asdict(),
+                "config": self.model.config.to_dict(),
                 "lr": lr,
                 "weight_decay": weight_decay,
                 "lr_scheduler": lr_scheduler,
@@ -77,15 +75,54 @@ class LightningTokenClassification(L.LightningModule):
 
         self.loss = nn.CrossEntropyLoss(ignore_index=ignore_index)
         self.threshold_metrics = threshold_metrics(
-            num_classes=self.config.n_classes, ignore_index=ignore_index
+            num_classes=n_classes, ignore_index=ignore_index
         )
         self.continueous_metrics = continuous_metrics(
-            num_classes=self.config.n_classes, ignore_index=ignore_index
+            num_classes=n_classes, ignore_index=ignore_index
         )
+
+    @classmethod
+    def from_pretrained(cls, model_path: str | Path, n_classes: int, **kwargs) -> Self:
+        pretrained = LightningPretraining.load_from_checkpoint(model_path)
+        config = pretrained.model.config
+        model = cls(config, n_classes, **kwargs)
+        model.model.bert.load_state_dict(pretrained.model.bert.state_dict())
+        # should do model.model.reset_weights()?
+        model.model_path = str(model_path)
+        return model
+
+    @classmethod
+    def from_hf_model(cls, model_path: str | Path, n_classes: int, **kwargs) -> Self:
+        pretrained = BertForTokenClassification.from_pretrained(
+            model_path, num_labels=n_classes
+        )
+        config = cast(HFBertConfig, pretrained.config)
+        model = cls(config, n_classes, **kwargs)
+        model.model.load_state_dict(pretrained.state_dict())
+        model.model_path = str(model_path)
+        return model
+
+    def native_forward(self, inputs: LongTensor, mask: LongTensor) -> Tensor:
+        return self.model(inputs, mask)
+
+    def hf_forward(self, inputs: LongTensor, mask: LongTensor) -> Tensor:
+        return self.model(inputs, mask).logits
+
+    def freeze_layers(self, n_layers: int):
+        if isinstance(self.model, BertTokenClassification):
+            for param in self.model.bert.embedder.parameters():
+                param.requires_grad = False
+            for param in self.model.bert.encoder.layers[:n_layers].parameters():
+                param.requires_grad = False
+        else:
+            for param in self.model.bert.embeddings.parameters():
+                param.requires_grad = False
+            for param in self.model.bert.encoder.layer[:n_layers].parameters():
+                param.requires_grad = False
 
     def training_step(self, batch: tuple[LongTensor, LongTensor, LongTensor], _):
         inputs, labels, padding_mask = batch
-        logits = self.model(inputs, mask=padding_mask)
+        logits = self(inputs, mask=padding_mask)
         logits = einops.rearrange(logits, "b n c -> (b n) c")
         loss = self.loss(logits, labels.flatten())
 
@@ -95,7 +132,7 @@ class LightningTokenClassification(L.LightningModule):
 
     def validation_step(self, batch: tuple[LongTensor, LongTensor, LongTensor], _):
         inputs, labels, padding_mask = batch
-        logits = self.model(inputs, mask=padding_mask)
+        logits = self(inputs, mask=padding_mask)
         logits = einops.rearrange(logits, "b n c -> (b n) c")
         labels = labels.flatten()
         loss = self.loss(logits, labels)
@@ -114,7 +151,7 @@ class LightningTokenClassification(L.LightningModule):
 
     def predict_step(self, batch: tuple[LongTensor, LongTensor | None, LongTensor], _):
         inputs, labels, padding_mask = batch
-        logits = self.model(inputs, mask=padding_mask)
+        logits = self(inputs, mask=padding_mask)
 
         if labels is not None and labels.numel() > 0:
             valid_idx = labels != self.ignore_index

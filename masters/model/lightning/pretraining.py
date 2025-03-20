@@ -31,7 +31,7 @@ class LightningPretraining(L.LightningModule):
 
         self.save_hyperparameters(
             {
-                "config": config.asdict(),
+                "config": config.to_dict(),
                 "ignore_index": ignore_index,
                 "lr": lr,
                 "weight_decay": weight_decay,
