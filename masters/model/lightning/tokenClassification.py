@@ -40,13 +40,11 @@ class LightningTokenClassification(L.LightningModule):
                 config.classifier_dropout = cls_dropout
                 self.model = BertForTokenClassification(config)
                 self.forward = self.hf_forward
-                self.is_hf = True
             case BertConfig():
                 config.n_classes = n_classes
                 config.cls_dropout = cls_dropout
                 self.model = BertTokenClassification(config)
                 self.forward = self.native_forward
-                self.is_hf = False
             case _:
                 raise ValueError("Configuration not recognized")
 
@@ -84,7 +82,7 @@ class LightningTokenClassification(L.LightningModule):
     @classmethod
     def from_pretrained(cls, model_path: str | Path, n_classes: int, **kwargs) -> Self:
         pretrained = LightningPretraining.load_from_checkpoint(model_path)
-        config = pretrained.model.config
+        config = cast(HFBertConfig | BertConfig, pretrained.model.config)
         model = cls(config, n_classes, **kwargs)
         model.model.bert.load_state_dict(pretrained.model.bert.state_dict())
         # should do model.model.reset_weights()?

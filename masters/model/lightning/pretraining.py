@@ -3,7 +3,8 @@ from typing import Any
 import einops
 import lightning as L
 from torch import LongTensor, nn, optim
-from transformers import get_scheduler
+from transformers import BertConfig as HFBertConfig
+from transformers import BertForMaskedLM, get_scheduler
 
 from ..model import BertConfig, BertPretraining
 
@@ -11,7 +12,7 @@ from ..model import BertConfig, BertPretraining
 class LightningPretraining(L.LightningModule):
     def __init__(
         self,
-        config: BertConfig | dict[str, Any],
+        config: BertConfig | HFBertConfig | dict[str, Any],
         ignore_index: int = -100,
         lr: float = 5e-5,
         weight_decay: float = 0.01,
@@ -20,8 +21,22 @@ class LightningPretraining(L.LightningModule):
         **_,  # log additional arguments as needed
     ):
         super().__init__()
-        config = BertConfig(**config)
-        self.model = BertPretraining(config)
+
+        if isinstance(config, dict):
+            if "model_type" in config:
+                config = HFBertConfig(**config)
+            else:
+                config = BertConfig(**config)
+
+        match config:
+            case HFBertConfig():
+                self.model = BertForMaskedLM(config)
+                self.forward = self.hf_forward
+            case BertConfig():
+                self.model = BertPretraining(config)
+                self.forward = self.native_forward
+            case _:
+                raise ValueError("Configuration not recognized")
 
         self.lr = lr
         self.weight_decay = weight_decay
@@ -43,11 +58,19 @@ class LightningPretraining(L.LightningModule):
 
         self.loss = nn.CrossEntropyLoss(ignore_index=ignore_index)
 
+    def hf_forward(self, input_ids: LongTensor, attn_mask: LongTensor) -> LongTensor:
+        return self.model(input_ids, attention_mask=attn_mask).logits
+
+    def native_forward(
+        self, input_ids: LongTensor, attn_mask: LongTensor
+    ) -> LongTensor:
+        return self.model(input_ids, attn_mask)
+
     def training_step(self, batch: tuple[LongTensor, LongTensor, LongTensor], _):
         input_ids, labels, attn_mask = batch
 
         # labels: [batch_size, seq_len], token_probs: [batch_size, seq_len, vocab_size]
-        token_probs = self.model.forward(input_ids, attn_mask)
+        token_probs = self.forward(input_ids, attn_mask)
         token_probs = einops.rearrange(token_probs, "b n v -> (b n) v")
         labels = einops.rearrange(labels, "b n -> (b n)")
         loss = self.loss(token_probs, labels)
