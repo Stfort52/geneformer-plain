@@ -2,7 +2,7 @@ from typing import Any
 
 import einops
 import lightning as L
-from torch import LongTensor, nn, optim
+from torch import LongTensor, Tensor, nn, optim
 from transformers import BertConfig as HFBertConfig
 from transformers import BertForMaskedLM, get_scheduler
 
@@ -65,6 +65,15 @@ class LightningPretraining(L.LightningModule):
         self, input_ids: LongTensor, attn_mask: LongTensor
     ) -> LongTensor:
         return self.model(input_ids, attn_mask)
+
+    def load_embedding(self, word_embed: Tensor, freeze: bool = False) -> None:
+        if isinstance(self.model, BertPretraining):
+            embedding = self.model.bert.embedder.embed
+        else:
+            embedding = self.model.bert.embeddings.word_embeddings
+
+        embedding.load_state_dict(nn.Embedding.from_pretrained(word_embed).state_dict())
+        embedding.weight.requires_grad = not freeze
 
     def training_step(self, batch: tuple[LongTensor, LongTensor, LongTensor], _):
         input_ids, labels, attn_mask = batch

@@ -45,8 +45,8 @@ if __name__ == "__main__":
     model.model.reset_weights()
 
     if EMBED_PATH is not None:
-        word_embed = load_gensim_model_or_kv(str(EMBED_PATH), token_dict)
-        model.model.bert.embedder.load_pretrained(word_embed)
+        word_embed = load_gensim_model_or_kv(str(embed_path), token_dict)
+        model.load_embedding(word_embed)
 
     checkpoint_callback = EvenlySpacedModelCheckpoint(
         save_last="link", n_checkpoints=10
