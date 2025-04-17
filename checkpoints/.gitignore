@@ -6,3 +6,7 @@
 
 # TensorBoard event files
 *.tfevents*
+
+# result pickles
+*.pkl
+*.pickle
