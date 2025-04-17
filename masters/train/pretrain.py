@@ -16,6 +16,7 @@ from masters.model.utils.hf_interface import config_to_hf_config
 
 def main(
     embed_path: str | None,
+    dataset_path: str,
     batch_size: int = 12,
     epochs: int = 1,
     grad_accumul: int = 1,
@@ -29,7 +30,10 @@ def main(
     batch_per_gpu = batch_size // world_size
 
     DATA_DIR = Path(__file__).parent.parent.parent / "data"
-    dataset_dir = DATA_DIR / "datasets/genecorpus_30M_2048.dataset"
+    dataset_dir = Path(dataset_path)
+    if not dataset_dir.is_absolute():
+        dataset_dir = DATA_DIR / "datasets" / dataset_path
+
     token_dict = pickle.load((DATA_DIR / "token_dictionary.pkl").open("rb"))
 
     data = GenecorpusDataModule(
@@ -83,6 +87,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-E", "--embed-path", type=str, default=None, help="Path to the embedding file"
+    )
+    parser.add_argument(
+        "-D",
+        "--dataset-path",
+        type=str,
+        required=True,
+        help="Path to the dataset, relative to default dataset dir or absolute",
     )
     parser.add_argument(
         "-b", "--batch-size", type=int, default=12, help="Total batch size"
