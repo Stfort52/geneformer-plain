@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal, Self
+from typing import Any, KeysView, Literal, Self
 
 
 @dataclass
@@ -25,7 +25,7 @@ class BertConfig:
     n_classes: int = 2
     cls_dropout: float = 0.0
 
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         return asdict(self).keys()
 
     def __getitem__(self, key):
