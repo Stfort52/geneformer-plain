@@ -10,8 +10,9 @@ from masters.data.lightning import GenecorpusDataModule
 from masters.data.utils import load_gensim_model_or_kv
 from masters.model.lightning import LightningPretraining
 from masters.model.model import BertConfig
-from masters.model.utils import EvenlySpacedModelCheckpoint, training_setup
+from masters.model.utils import EvenlySpacedModelCheckpoint
 from masters.model.utils.hf_interface import config_to_hf_config
+from masters.train.utils import training_setup
 
 
 def main(
