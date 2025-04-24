@@ -142,10 +142,17 @@ class LightningTokenClassification(L.LightningModule):
         if probabilities.size(-1) == 2:
             probabilities = probabilities[:, 1]
 
-        self.log_dict(self.threshold_metrics(predictions, labels))
-        self.log_dict(self.continueous_metrics(probabilities, labels))
+        self.threshold_metrics.update(predictions, labels)
+        self.continueous_metrics.update(probabilities, labels)
 
         return loss
+
+    def on_validation_epoch_end(self):
+        self.log_dict(self.threshold_metrics.compute())
+        self.log_dict(self.continueous_metrics.compute())
+
+        self.threshold_metrics.reset()
+        self.continueous_metrics.reset()
 
     def predict_step(self, batch: tuple[LongTensor, LongTensor | None, LongTensor], _):
         inputs, labels, padding_mask = batch

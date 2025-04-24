@@ -133,10 +133,17 @@ class LightningSequenceClassification(L.LightningModule):
 
         predictions = logits.argmax(dim=-1)
 
-        self.log_dict(self.threshold_metrics(predictions, labels))
-        self.log_dict(self.continueous_metrics(probablities, labels))
+        self.threshold_metrics.update(predictions, labels)
+        self.continueous_metrics.update(probablities, labels)
 
         return loss
+
+    def on_validation_epoch_end(self):
+        self.log_dict(self.threshold_metrics.compute())
+        self.log_dict(self.continueous_metrics.compute())
+
+        self.threshold_metrics.reset()
+        self.continueous_metrics.reset()
 
     def configure_optimizers(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         if isinstance(self.warmup_steps_or_ratio, float):
