@@ -27,6 +27,9 @@ def main(
 ):
     training_setup(seed)
 
+    if name is not None and (Path("checkpoints/lightning_logs") / name).exists():
+        raise ValueError(f"Experiment of name {name} already exists")
+
     world_size = int(os.getenv("WORLD_SIZE", 1))
     batch_per_gpu = batch_size // world_size
 
