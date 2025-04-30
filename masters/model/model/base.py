@@ -33,9 +33,7 @@ class BertBase(nn.Module):
         self.relative_pe_strategy = relative_pe_strategy
         self._check_args()
 
-        self.embedder = WordEmbedding(
-            n_vocab, d_model, dropout_p=ff_dropout, ln_eps=ln_eps
-        )
+        self.embedder = WordEmbedding(n_vocab, d_model)
 
         if absolute_pe_strategy is not None:
             absolute_pe_kwargs.setdefault("embed_size", d_model)
@@ -53,6 +51,11 @@ class BertBase(nn.Module):
             )
         else:
             self.relative_pe = None
+
+        self.emb_norm = nn.Sequential(
+            nn.LayerNorm(d_model, eps=ln_eps),
+            nn.Dropout(ff_dropout),
+        )
 
         self.encoder = Encoder(
             d_model,
@@ -83,6 +86,8 @@ class BertBase(nn.Module):
             x = self.embedder(x) + self.absolute_pe(x)
         else:
             x = self.embedder(x)
+
+        x = self.emb_norm(x)
 
         if self.relative_pe is not None:
             return self.encoder(x, mask, self.relative_pe(x))
