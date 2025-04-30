@@ -2,7 +2,8 @@
     "python.analysis.typeCheckingMode": "standard",
     "python.analysis.diagnosticSeverityOverrides": {
         "reportPrivateImportUsage": "none",
-        "reportMissingTypeStubs": "information"
+        "reportMissingTypeStubs": "information",
+        "reportUnusedImport": "warning"
     },
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
