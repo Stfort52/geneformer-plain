@@ -1,0 +1,3 @@
+[submodule "evals/workspace/zero-shot-scfoundation"]
+	path = evals/workspace/zero-shot-scfoundation
+	url = https://github.com/Stfort52/zero-shot-scfoundation.git

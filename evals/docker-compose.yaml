@@ -1,0 +1,23 @@
+services:
+  sc_foundation_evals:
+    # refer to the following paper for more details:
+    # https://doi.org/10.1186/s13059-025-03574-x
+    image: kzkedzierska/sc_foundation_evals:latest
+    container_name: sc_foundation_evals
+    tty: true
+    stdin_open: true
+    network_mode: bridge
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+
+    volumes:
+      - ./workspace:/workspace
+    
+
+
