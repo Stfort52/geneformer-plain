@@ -57,4 +57,5 @@ class GenecorpusDataModule(L.LightningDataModule):
             collate_fn=self.collator,  # pyright: ignore[reportArgumentType]
             shuffle=False,
             num_workers=self.num_workers,
+            persistent_workers=True,
         )

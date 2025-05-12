@@ -6,7 +6,10 @@ from transformers import BertConfig as HFBertConfig
 from ..model import BertConfig
 
 
-def config_from_hf_config(hf_config: HFBertConfig) -> BertConfig:
+def to_native_config(hf_config: HFBertConfig | BertConfig) -> BertConfig:
+    if isinstance(hf_config, BertConfig):
+        return hf_config
+
     match hf_config.position_embedding_type:
         case "absolute":
             absolute_pe_strategy = "trained"
@@ -46,7 +49,10 @@ def config_from_hf_config(hf_config: HFBertConfig) -> BertConfig:
     return config
 
 
-def config_to_hf_config(config: BertConfig) -> HFBertConfig:
+def to_hf_config(config: BertConfig | HFBertConfig) -> HFBertConfig:
+    if isinstance(config, HFBertConfig):
+        return config
+
     if config["absolute_pe_strategy"] == "trained":
         position_embedding_type = "absolute"
         max_position_embeddings = config["absolute_pe_kwargs"]["max_len"]
